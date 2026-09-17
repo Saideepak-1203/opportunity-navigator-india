@@ -101,4 +101,40 @@ export async function updateUserProfile(openId: string, profile: { profileName: 
   return getUserByOpenId(openId);
 }
 
+export type DiscoveryState = {
+  saved: string[];
+  dismissed: string[];
+  tracked: string[];
+};
+
+const parseList = (value: string | null | undefined) => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+export async function getUserDiscoveryState(openId: string): Promise<DiscoveryState> {
+  const user = await getUserByOpenId(openId);
+  return {
+    saved: parseList(user?.savedOpportunities),
+    dismissed: parseList(user?.dismissedOpportunities),
+    tracked: parseList(user?.trackedOpportunities),
+  };
+}
+
+export async function updateUserDiscoveryState(openId: string, state: DiscoveryState) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(users).set({
+    savedOpportunities: JSON.stringify(state.saved),
+    dismissedOpportunities: JSON.stringify(state.dismissed),
+    trackedOpportunities: JSON.stringify(state.tracked),
+  }).where(eq(users.openId, openId));
+  return state;
+}
+
 // TODO: add feature queries here as your schema grows.

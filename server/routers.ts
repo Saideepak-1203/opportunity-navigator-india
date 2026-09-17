@@ -40,6 +40,15 @@ export const appRouter = router({
     }),
   }),
 
+  discovery: router({
+    state: protectedProcedure.query(({ ctx }) => db.getUserDiscoveryState(ctx.user.openId)),
+    update: protectedProcedure.input(z.object({
+      saved: z.array(z.string()).max(100),
+      dismissed: z.array(z.string()).max(100),
+      tracked: z.array(z.string()).max(100),
+    })).mutation(({ ctx, input }) => db.updateUserDiscoveryState(ctx.user.openId, input)),
+  }),
+
   // TODO: add feature routers here, e.g.
   // todo: router({
   //   list: protectedProcedure.query(({ ctx }) =>
