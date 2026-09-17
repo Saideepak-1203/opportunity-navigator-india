@@ -48,11 +48,6 @@ export default function Home() {
   // nonce cookie and must run only at the moment of navigation.
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [profileComplete, setProfileComplete] = useState(() => localStorage.getItem("sloth-profile-complete") === "true");
-
-  if (loading) return <AuthLoading />;
-  if (!isAuthenticated) return <AuthScreen />;
-  if (!profileComplete) return <ProfileSetup userName={user?.name ?? ""} onComplete={() => { localStorage.setItem("sloth-profile-complete", "true"); setProfileComplete(true); }} />;
-
   const [activeFilter, setActiveFilter] = useState("For you");
   const [activeNav, setActiveNav] = useState<WorkspaceView>("Home");
   const [saved, setSaved] = useState<string[]>(["SBI Youth for India Fellowship"]);
@@ -62,6 +57,10 @@ export default function Home() {
   const visible = useMemo(() => opportunities.filter(o => `${o.title} ${o.org} ${o.type}`.toLowerCase().includes(query.toLowerCase())), [query]);
   const save = (title: string) => { setSaved(s => s.includes(title) ? s.filter(x => x !== title) : [...s, title]); toast.success(saved.includes(title) ? "Removed from saved" : "Saved to your watchlist"); };
   const navigate = (label: WorkspaceView) => { setActiveNav(label); setMobileOpen(false); };
+
+  if (loading) return <AuthLoading />;
+  if (!isAuthenticated) return <AuthScreen />;
+  if (!profileComplete) return <ProfileSetup userName={user?.name ?? ""} onComplete={() => { localStorage.setItem("sloth-profile-complete", "true"); setProfileComplete(true); }} />;
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
