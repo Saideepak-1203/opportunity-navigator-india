@@ -32,7 +32,10 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
-      if (typeof window !== "undefined") window.location.assign("/api/auth/logout");
+      if (typeof window !== "undefined") {
+        const targetWindow = window.top ?? window;
+        targetWindow.location.assign("/api/auth/logout");
+      }
     }
   }, [logoutMutation, utils]);
 
