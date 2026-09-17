@@ -1,3 +1,5 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -39,6 +41,18 @@ function OpportunityCard({ item, saved, onSave }: { item: Opportunity; saved: bo
 }
 
 export default function Home() {
+  // The useAuth hook provides authentication state.
+  // To implement login/logout, call logout(), or start login from an event
+  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
+  // startLogin() during render (no href={startLogin()}) — it mints a one-time
+  // nonce cookie and must run only at the moment of navigation.
+  const { user, loading, isAuthenticated, logout } = useAuth();
+  const [profileComplete, setProfileComplete] = useState(() => localStorage.getItem("sloth-profile-complete") === "true");
+
+  if (loading) return <AuthLoading />;
+  if (!isAuthenticated) return <AuthScreen />;
+  if (!profileComplete) return <ProfileSetup userName={user?.name ?? ""} onComplete={() => { localStorage.setItem("sloth-profile-complete", "true"); setProfileComplete(true); }} />;
+
   const [activeFilter, setActiveFilter] = useState("For you");
   const [activeNav, setActiveNav] = useState<WorkspaceView>("Home");
   const [saved, setSaved] = useState<string[]>(["SBI Youth for India Fellowship"]);
@@ -61,10 +75,28 @@ export default function Home() {
       <div className="poster-switch"><div><small>Publishing opportunities?</small><strong>Switch to Poster</strong></div><button onClick={() => { setRole(role === "user" ? "poster" : "user"); toast.success(role === "user" ? "Poster workspace selected" : "Back to your personal workspace"); }}><ArrowUpRight size={16} /></button></div>
     </aside>
     <main className="main-content">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><button className="role-pill" onClick={() => setRole(role === "user" ? "poster" : "user")}>{role === "user" ? "Personal workspace" : "Poster workspace"}<ChevronDown size={14} /></button><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><div className="avatar mini">AR</div></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><button className="role-pill" onClick={() => setRole(role === "user" ? "poster" : "user")}>{role === "user" ? "Personal workspace" : "Poster workspace"}<ChevronDown size={14} /></button><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => toast.info("Profile settings are coming next")}>AR</button></div></header>
       {role === "poster" ? <PosterView /> : <WorkspaceContent view={activeNav} activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} save={save} query={query} setQuery={setQuery} visible={visible} />}
     </main>
   </div>;
+}
+
+function AuthLoading() {
+  return <div className="auth-shell auth-loading"><div className="auth-logo"><div className="brand-mark">s</div><span>sloth</span></div><div className="auth-spinner" /><p>Preparing your calmer workspace…</p></div>;
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  return <div className="auth-shell"><div className="auth-decoration auth-decoration-one" /><div className="auth-decoration auth-decoration-two" /><div className="auth-nav"><div className="brand"><div className="brand-mark">s</div><span>sloth</span></div><span className="auth-nav-note">Opportunity intelligence for India</span></div><div className="auth-card"><div className="auth-card-copy"><p className="kicker"><Sparkles size={15} /> TAKE THE PRESSURE OFF</p><h1>Find what’s<br /><em>right for you.</em></h1><p>Sloth brings the right opportunities, deadlines, and people into one calm workspace.</p><div className="auth-proof"><span><ShieldCheck size={15} /> Official sources</span><span><Target size={15} /> Personalised matches</span></div></div><div className="auth-form"><div className="auth-tabs"><button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Log in</button><button className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Create account</button></div><h2>{mode === "login" ? "Welcome back." : "Start with a profile."}</h2><p className="auth-form-sub">{mode === "login" ? "Pick up where you left off." : "Tell us a little about what you’re looking for."}</p><button className="oauth-button" onClick={() => startLogin()}><span className="oauth-symbol">M</span>{mode === "login" ? "Continue with Manus" : "Create with Manus"}<ArrowUpRight size={16} /></button><div className="auth-divider"><span>secure authentication</span></div><p className="auth-legal">By continuing, you agree to Sloth’s <a href="#" onClick={e => e.preventDefault()}>Terms</a> and <a href="#" onClick={e => e.preventDefault()}>Privacy Policy</a>.</p></div></div><div className="auth-footer"><span>© 2026 Sloth Technologies</span><span>Built for the next generation of India</span></div></div>;
+}
+
+function ProfileSetup({ userName, onComplete }: { userName: string; onComplete: () => void }) {
+  const [name, setName] = useState(userName);
+  const [journey, setJourney] = useState("student");
+  const [interests, setInterests] = useState<string[]>(["AI & technology"]);
+  const interestOptions = ["AI & technology", "Design", "Business", "Research", "Social impact", "Government"];
+  const toggleInterest = (interest: string) => setInterests(current => current.includes(interest) ? current.filter(item => item !== interest) : [...current, interest]);
+  return <div className="auth-shell profile-shell"><div className="auth-nav"><div className="brand"><div className="brand-mark">s</div><span>sloth</span></div><span className="profile-step">STEP 1 OF 1 · YOUR PROFILE</span></div><div className="profile-card"><div className="profile-intro"><div className="profile-orbit"><Sparkles size={24} /></div><p className="kicker">MAKE IT YOURS</p><h1>Your next move<br /><em>starts here.</em></h1><p>A few details help Sloth filter the noise and surface opportunities that actually fit.</p></div><div className="profile-form"><label>What should we call you?<input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoFocus /></label><label>Where are you in your journey?<div className="journey-options">{[["student", "Student", "Learning and building my path"], ["professional", "Young professional", "Growing in my career"], ["founder", "Founder / innovator", "Building something of my own"]].map(([value, title, hint]) => <button key={value} className={journey === value ? "selected" : ""} onClick={() => setJourney(value)}><span>{title}</span><small>{hint}</small>{journey === value && <Check size={15} />}</button>)}</div></label><label>What are you curious about?<div className="interest-options">{interestOptions.map(interest => <button key={interest} className={interests.includes(interest) ? "selected" : ""} onClick={() => toggleInterest(interest)}>{interest}{interests.includes(interest) && <Check size={13} />}</button>)}</div></label><button className="profile-submit" disabled={!name.trim() || interests.length === 0} onClick={() => { localStorage.setItem("sloth-profile-name", name.trim()); localStorage.setItem("sloth-profile-journey", journey); localStorage.setItem("sloth-profile-interests", JSON.stringify(interests)); toast.success("Your Sloth profile is ready"); onComplete(); }}>Enter Sloth <ArrowUpRight size={16} /></button></div></div><div className="auth-footer"><span>Your profile stays yours.</span><span>© 2026 Sloth Technologies</span></div></div>;
 }
 
 function WorkspaceContent({ view, activeFilter, setActiveFilter, saved, save, query, setQuery, visible }: { view: WorkspaceView; activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; save: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[] }) {
