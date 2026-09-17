@@ -35,7 +35,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
+    const textFields = ["name", "email", "loginMethod", "profileName", "journey", "interests", "bio"] as const;
     type TextField = (typeof textFields)[number];
 
     const assignNullable = (field: TextField) => {
@@ -87,6 +87,18 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateUserProfile(openId: string, profile: { profileName: string; journey: string; interests: string[]; bio?: string | null }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(users).set({
+    profileName: profile.profileName,
+    journey: profile.journey,
+    interests: JSON.stringify(profile.interests),
+    bio: profile.bio ?? null,
+  }).where(eq(users.openId, openId));
+  return getUserByOpenId(openId);
 }
 
 // TODO: add feature queries here as your schema grows.

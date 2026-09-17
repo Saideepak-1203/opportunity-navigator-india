@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
+import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -10,7 +11,9 @@ import {
 } from "lucide-react";
 
 type Opportunity = { title: string; org: string; type: string; days: string; match: number; mode: string; benefit: string; tone: string; logo: string; eligible: string };
-type WorkspaceView = "Home" | "Opportunities" | "Slot calendar" | "Commun-In" | "My applications" | "Saved";
+type WorkspaceView = "Home" | "Opportunities" | "Slot calendar" | "Commun-In" | "My applications" | "Saved" | "Profile settings";
+type ProfilePayload = { profileName: string; journey: string; interests: string[]; bio?: string };
+type SlothProfile = ProfilePayload;
 
 const opportunities: Opportunity[] = [
   { title: "AI Innovation Challenge 2026", org: "NITI Aayog · Atal Innovation Mission", type: "Competition", days: "1 day left", match: 92, mode: "Online", benefit: "₹50,000 prize", tone: "urgent", logo: "A", eligible: "Likely eligible" },
@@ -47,28 +50,33 @@ export default function Home() {
   // startLogin() during render (no href={startLogin()}) — it mints a one-time
   // nonce cookie and must run only at the moment of navigation.
   const { user, loading, isAuthenticated, logout } = useAuth();
-  const [profileComplete, setProfileComplete] = useState(() => localStorage.getItem("sloth-profile-complete") === "true");
+  const profileQuery = trpc.profile.get.useQuery(undefined, { enabled: isAuthenticated, retry: false });
+  const profileMutation = trpc.profile.update.useMutation();
+  const [profileComplete, setProfileComplete] = useState(false);
   const [activeFilter, setActiveFilter] = useState("For you");
   const [activeNav, setActiveNav] = useState<WorkspaceView>("Home");
   const [saved, setSaved] = useState<string[]>(["SBI Youth for India Fellowship"]);
   const [role, setRole] = useState<"user" | "poster">("user");
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const profileName = localStorage.getItem("sloth-profile-name") || user?.name || "Your profile";
+  const profileName = profileQuery.data?.profileName || user?.name || "Your profile";
   const firstName = profileName.split(" ")[0] || "there";
   const initials = profileName.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "SL";
   const visible = useMemo(() => opportunities.filter(o => `${o.title} ${o.org} ${o.type}`.toLowerCase().includes(query.toLowerCase())), [query]);
   const save = (title: string) => { setSaved(s => s.includes(title) ? s.filter(x => x !== title) : [...s, title]); toast.success(saved.includes(title) ? "Removed from saved" : "Saved to your watchlist"); };
   const navigate = (label: WorkspaceView) => { setActiveNav(label); setMobileOpen(false); };
+  const saveProfile = async (payload: ProfilePayload) => { await profileMutation.mutateAsync(payload); await profileQuery.refetch(); setProfileComplete(true); };
 
   if (loading) return <AuthLoading />;
   if (!isAuthenticated) return <AuthScreen />;
-  if (!profileComplete) return <ProfileSetup userName={user?.name ?? ""} onComplete={() => { localStorage.setItem("sloth-profile-complete", "true"); setProfileComplete(true); }} />;
+  if (profileQuery.isLoading) return <AuthLoading />;
+  const hasSavedProfile = Boolean(profileQuery.data?.profileName && profileQuery.data.interests.length > 0);
+  if (!profileComplete && !hasSavedProfile) return <ProfileSetup userName={user?.name ?? ""} onComplete={saveProfile} />;
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
       <div className="brand"><div className="brand-mark">s</div><span>sloth</span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
-      <div className="profile-chip"><div className="avatar">{initials}</div><div><strong>{profileName}</strong><small>Student · 420 points</small></div><ChevronDown size={15} className="ml-auto text-[#829087]" /></div>
+      <button className="profile-chip profile-chip-button" onClick={() => navigate("Profile settings")}><div className="avatar">{initials}</div><div><strong>{profileName}</strong><small>Student · 420 points</small></div><ChevronDown size={15} className="ml-auto text-[#829087]" /></button>
       <div className="side-label">Your workspace</div>
       <nav>{navItems.map(({ icon: Icon, label }) => <button key={label} className={`nav-item ${activeNav === label && role === "user" ? "active" : ""}`} onClick={() => navigate(label)}><Icon size={18} /><span>{label}</span>{label === "Saved" && <b>{saved.length}</b>}</button>)}</nav>
       <div className="side-spacer" />
@@ -77,8 +85,8 @@ export default function Home() {
       <div className="poster-switch"><div><small>Publishing opportunities?</small><strong>Switch to Poster</strong></div><button onClick={() => { setRole(role === "user" ? "poster" : "user"); toast.success(role === "user" ? "Poster workspace selected" : "Back to your personal workspace"); }}><ArrowUpRight size={16} /></button></div>
     </aside>
     <main className="main-content">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><button className="role-pill" onClick={() => setRole(role === "user" ? "poster" : "user")}>{role === "user" ? "Personal workspace" : "Poster workspace"}<ChevronDown size={14} /></button><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => toast.info("Profile settings are coming next")}>{initials}</button></div></header>
-      {role === "poster" ? <PosterView /> : <WorkspaceContent view={activeNav} activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} save={save} query={query} setQuery={setQuery} visible={visible} firstName={firstName} />}
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><button className="role-pill" onClick={() => setRole(role === "user" ? "poster" : "user")}>{role === "user" ? "Personal workspace" : "Poster workspace"}<ChevronDown size={14} /></button><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => setActiveNav("Profile settings")}>{initials}</button></div></header>
+      {role === "poster" ? <PosterView /> : <WorkspaceContent view={activeNav} activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} save={save} query={query} setQuery={setQuery} visible={visible} firstName={firstName} profile={profileQuery.data ?? { profileName, journey: "student", interests: [], bio: "" }} onSaveProfile={saveProfile} onLogout={logout} />}
     </main>
   </div>;
 }
@@ -92,21 +100,22 @@ function AuthScreen() {
   return <div className="auth-shell"><div className="auth-decoration auth-decoration-one" /><div className="auth-decoration auth-decoration-two" /><div className="auth-nav"><div className="brand"><div className="brand-mark">s</div><span>sloth</span></div><span className="auth-nav-note">Opportunity intelligence for India</span></div><div className="auth-card"><div className="auth-card-copy"><p className="kicker"><Sparkles size={15} /> TAKE THE PRESSURE OFF</p><h1>Find what’s<br /><em>right for you.</em></h1><p>Sloth brings the right opportunities, deadlines, and people into one calm workspace.</p><div className="auth-proof"><span><ShieldCheck size={15} /> Official sources</span><span><Target size={15} /> Personalised matches</span></div></div><div className="auth-form"><div className="auth-tabs"><button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Log in</button><button className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Create account</button></div><h2>{mode === "login" ? "Welcome back." : "Start with a profile."}</h2><p className="auth-form-sub">{mode === "login" ? "Pick up where you left off." : "Tell us a little about what you’re looking for."}</p><button className="oauth-button" onClick={() => startLogin()}><span className="oauth-symbol">M</span>{mode === "login" ? "Continue with Manus" : "Create with Manus"}<ArrowUpRight size={16} /></button><div className="auth-divider"><span>secure authentication</span></div><p className="auth-legal">By continuing, you agree to Sloth’s <a href="#" onClick={e => e.preventDefault()}>Terms</a> and <a href="#" onClick={e => e.preventDefault()}>Privacy Policy</a>.</p></div></div><div className="auth-footer"><span>© 2026 Sloth Technologies</span><span>Built for the next generation of India</span></div></div>;
 }
 
-function ProfileSetup({ userName, onComplete }: { userName: string; onComplete: () => void }) {
+function ProfileSetup({ userName, onComplete }: { userName: string; onComplete: (payload: ProfilePayload) => Promise<void> }) {
   const [name, setName] = useState(userName);
   const [journey, setJourney] = useState("student");
   const [interests, setInterests] = useState<string[]>(["AI & technology"]);
   const interestOptions = ["AI & technology", "Design", "Business", "Research", "Social impact", "Government"];
   const toggleInterest = (interest: string) => setInterests(current => current.includes(interest) ? current.filter(item => item !== interest) : [...current, interest]);
-  return <div className="auth-shell profile-shell"><div className="auth-nav"><div className="brand"><div className="brand-mark">s</div><span>sloth</span></div><span className="profile-step">STEP 1 OF 1 · YOUR PROFILE</span></div><div className="profile-card"><div className="profile-intro"><div className="profile-orbit"><Sparkles size={24} /></div><p className="kicker">MAKE IT YOURS</p><h1>Your next move<br /><em>starts here.</em></h1><p>A few details help Sloth filter the noise and surface opportunities that actually fit.</p></div><div className="profile-form"><label>What should we call you?<input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoFocus /></label><label>Where are you in your journey?<div className="journey-options">{[["student", "Student", "Learning and building my path"], ["professional", "Young professional", "Growing in my career"], ["founder", "Founder / innovator", "Building something of my own"]].map(([value, title, hint]) => <button key={value} className={journey === value ? "selected" : ""} onClick={() => setJourney(value)}><span>{title}</span><small>{hint}</small>{journey === value && <Check size={15} />}</button>)}</div></label><label>What are you curious about?<div className="interest-options">{interestOptions.map(interest => <button key={interest} className={interests.includes(interest) ? "selected" : ""} onClick={() => toggleInterest(interest)}>{interest}{interests.includes(interest) && <Check size={13} />}</button>)}</div></label><button className="profile-submit" disabled={!name.trim() || interests.length === 0} onClick={() => { localStorage.setItem("sloth-profile-name", name.trim()); localStorage.setItem("sloth-profile-journey", journey); localStorage.setItem("sloth-profile-interests", JSON.stringify(interests)); toast.success("Your Sloth profile is ready"); onComplete(); }}>Enter Sloth <ArrowUpRight size={16} /></button></div></div><div className="auth-footer"><span>Your profile stays yours.</span><span>© 2026 Sloth Technologies</span></div></div>;
+  return <div className="auth-shell profile-shell"><div className="auth-nav"><div className="brand"><div className="brand-mark">s</div><span>sloth</span></div><span className="profile-step">STEP 1 OF 1 · YOUR PROFILE</span></div><div className="profile-card"><div className="profile-intro"><div className="profile-orbit"><Sparkles size={24} /></div><p className="kicker">MAKE IT YOURS</p><h1>Your next move<br /><em>starts here.</em></h1><p>A few details help Sloth filter the noise and surface opportunities that actually fit.</p></div><div className="profile-form"><label>What should we call you?<input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoFocus /></label><label>Where are you in your journey?<div className="journey-options">{[["student", "Student", "Learning and building my path"], ["professional", "Young professional", "Growing in my career"], ["founder", "Founder / innovator", "Building something of my own"]].map(([value, title, hint]) => <button type="button" key={value} className={journey === value ? "selected" : ""} onClick={() => setJourney(value)}><span>{title}</span><small>{hint}</small>{journey === value && <Check size={15} />}</button>)}</div></label><label>What are you curious about?<div className="interest-options">{interestOptions.map(interest => <button type="button" key={interest} className={interests.includes(interest) ? "selected" : ""} onClick={() => toggleInterest(interest)}>{interest}{interests.includes(interest) && <Check size={13} />}</button>)}</div></label><button className="profile-submit" disabled={!name.trim() || interests.length === 0} onClick={() => onComplete({ profileName: name.trim(), journey, interests })}>Enter Sloth <ArrowUpRight size={16} /></button></div></div><div className="auth-footer"><span>Your profile stays yours.</span><span>© 2026 Sloth Technologies</span></div></div>;
 }
 
-function WorkspaceContent({ view, activeFilter, setActiveFilter, saved, save, query, setQuery, visible, firstName }: { view: WorkspaceView; activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; save: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; firstName: string }) {
+function WorkspaceContent({ view, activeFilter, setActiveFilter, saved, save, query, setQuery, visible, firstName, profile, onSaveProfile, onLogout }: { view: WorkspaceView; activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; save: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; firstName: string; profile: SlothProfile; onSaveProfile: (payload: ProfilePayload) => Promise<void>; onLogout: () => Promise<void> }) {
   if (view === "Opportunities") return <OpportunitiesView activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} save={save} query={query} setQuery={setQuery} visible={visible} />;
   if (view === "Slot calendar") return <CalendarView />;
   if (view === "Commun-In") return <CommunityView />;
   if (view === "My applications") return <ApplicationsView />;
   if (view === "Saved") return <SavedView saved={saved} save={save} />;
+  if (view === "Profile settings") return <ProfileSettings profile={profile} onSave={onSaveProfile} onLogout={onLogout} />;
   return <HomeView activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} save={save} query={query} setQuery={setQuery} visible={visible} firstName={firstName} />;
 }
 
@@ -145,6 +154,18 @@ function ApplicationsView() {
 function SavedView({ saved, save }: { saved: string[]; save: (title: string) => void }) {
   const savedItems = opportunities.filter(o => saved.includes(o.title));
   return <div className="workspace-page"><section className="page-intro"><div><p className="kicker"><Bookmark size={15} /> WATCHLIST</p><h1>Good things, <em>saved.</em></h1><p className="subhead">Your shortlist, ready when you are. No tab-hoarding required.</p></div><div className="saved-count"><strong>{saved.length}</strong><span>saved<br />opportunities</span></div></section><div className="saved-layout"><div><div className="saved-header"><h3>Saved for later</h3><span>{saved.length} items</span></div><div className="opportunity-grid">{savedItems.length ? savedItems.map(item => <OpportunityCard key={item.title} item={item} saved onSave={() => save(item.title)} />) : <div className="empty-state"><Bookmark size={25} /><h3>Your watchlist is clear.</h3><p>Save opportunities from the discovery feed and they will show up here.</p></div>}</div></div><div className="save-tip"><div className="trust-orbit"><Clock3 size={21} /></div><p className="kicker">A SMALL REMINDER</p><h3>Save now.<br /><em>Decide later.</em></h3><p>Sloth keeps your shortlist organized and your deadlines visible, so you can choose with less pressure.</p><button className="text-button" onClick={() => toast.info("Opening Opportunities")}>Browse opportunities <ArrowUpRight size={14} /></button></div></div></div>;
+}
+
+function ProfileSettings({ profile, onSave, onLogout }: { profile: SlothProfile; onSave: (payload: ProfilePayload) => Promise<void>; onLogout: () => Promise<void> }) {
+  const [name, setName] = useState(profile.profileName);
+  const [journey, setJourney] = useState(profile.journey || "student");
+  const [interests, setInterests] = useState<string[]>(profile.interests.length ? profile.interests : ["AI & technology"]);
+  const [bio, setBio] = useState(profile.bio || "");
+  const [saving, setSaving] = useState(false);
+  const interestOptions = ["AI & technology", "Design", "Business", "Research", "Social impact", "Government"];
+  const toggleInterest = (interest: string) => setInterests(current => current.includes(interest) ? current.filter(item => item !== interest) : [...current, interest]);
+  const submit = async () => { setSaving(true); try { await onSave({ profileName: name.trim(), journey, interests, bio }); toast.success("Profile settings saved to Sloth"); } catch { toast.error("Could not save your profile yet"); } finally { setSaving(false); } };
+  return <div className="workspace-page settings-page"><section className="page-intro"><div><p className="kicker"><Users size={15} /> YOUR ACCOUNT</p><h1>Profile <em>settings.</em></h1><p className="subhead">Keep your Sloth profile current so recommendations stay relevant.</p></div><button className="logout-button" onClick={() => onLogout()}>Log out <ExternalLink size={14} /></button></section><div className="settings-layout"><div className="settings-card"><div className="settings-avatar"><span>{name.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "SL"}</span><div><strong>{name || "Your profile"}</strong><small>Connected with Sloth account</small></div></div><div className="settings-divider" /><label>Display name<input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" /></label><label>Where are you in your journey?<div className="journey-options">{[["student", "Student", "Learning and building my path"], ["professional", "Young professional", "Growing in my career"], ["founder", "Founder / innovator", "Building something of my own"]].map(([value, title, hint]) => <button type="button" key={value} className={journey === value ? "selected" : ""} onClick={() => setJourney(value)}><span>{title}</span><small>{hint}</small>{journey === value && <Check size={15} />}</button>)}</div></label><label>What are you curious about?<div className="interest-options">{interestOptions.map(interest => <button type="button" key={interest} className={interests.includes(interest) ? "selected" : ""} onClick={() => toggleInterest(interest)}>{interest}{interests.includes(interest) && <Check size={13} />}</button>)}</div></label><label>Short bio <textarea value={bio} onChange={e => setBio(e.target.value)} placeholder="What are you working toward?" maxLength={500} /></label><div className="settings-actions"><span>{bio.length}/500</span><button className="profile-submit" disabled={!name.trim() || interests.length === 0 || saving} onClick={submit}>{saving ? "Saving…" : "Save changes"} <Check size={15} /></button></div></div><div className="settings-side"><div className="settings-note"><div className="trust-orbit"><ShieldCheck size={22} /></div><p className="kicker">CONNECTED PROFILE</p><h3>Your details stay<br /><em>with Sloth.</em></h3><p>Your profile is linked to your authenticated Sloth account and used to personalise opportunity matches.</p><span className="connected-pill"><Check size={13} /> Account connected</span></div><div className="settings-note pale"><Sparkles size={18} /><strong>Why this matters</strong><p>The clearer your profile, the less time you spend sorting through opportunities that are not for you.</p></div></div></div></div>;
 }
 
 function TrustCard() { return <div className="trust-card"><div className="trust-orbit"><ShieldCheck size={27} /></div><p className="kicker">TRUST LAYER</p><h3>Information you can<br /><em>act on.</em></h3><p>Every listing is checked against its official source and timestamped, so you know what to trust.</p><div className="trust-stat"><strong>98.4%</strong><span>of active listings verified</span></div><a href="#" onClick={e => { e.preventDefault(); toast.info("Trust methodology coming soon"); }}>How verification works <ArrowUpRight size={15} /></a></div>; }

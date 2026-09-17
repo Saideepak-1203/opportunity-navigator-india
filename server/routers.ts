@@ -1,7 +1,9 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import * as db from "./db";
+import { z } from "zod";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -14,6 +16,27 @@ export const appRouter = router({
       return {
         success: true,
       } as const;
+    }),
+  }),
+
+  profile: router({
+    get: protectedProcedure.query(async ({ ctx }) => {
+      const user = await db.getUserByOpenId(ctx.user.openId);
+      return user ? {
+        profileName: user.profileName ?? user.name ?? "",
+        journey: user.journey ?? "student",
+        interests: user.interests ? JSON.parse(user.interests) as string[] : [],
+        bio: user.bio ?? "",
+      } : null;
+    }),
+    update: protectedProcedure.input(z.object({
+      profileName: z.string().trim().min(1).max(160),
+      journey: z.string().min(1).max(40),
+      interests: z.array(z.string()).min(1).max(12),
+      bio: z.string().max(500).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const user = await db.updateUserProfile(ctx.user.openId, input);
+      return { success: true as const, profile: user };
     }),
   }),
 
