@@ -1,8 +1,10 @@
-export type YouthForIndiaInput = {
+export type ScholarshipProfile = {
   age?: number;
-  degreeCompleted?: "yes" | "no";
   citizenship?: string;
-  sbiEmployee?: "no" | "confirmed" | "unconfirmed";
+  educationLevel?: "school" | "undergraduate" | "postgraduate" | "graduate";
+  studyYear?: "1" | "2" | "3" | "4" | "postgraduate";
+  householdIncomeLakh?: number;
+  studyMode?: "regular" | "online" | "distance";
 };
 
 export type EligibilityCheck = {
@@ -11,48 +13,59 @@ export type EligibilityCheck = {
   detail: string;
 };
 
-export type EligibilityResult = {
-  status: "yes" | "no" | "more";
+export type ScholarshipMatch = {
+  id: string;
+  title: string;
+  provider: string;
+  status: "likely-match" | "not-match" | "more-info";
+  reason: string;
   checks: EligibilityCheck[];
+  officialUrl: string;
+  sourceStatus: string;
 };
 
-const acceptedStatuses = new Set(["Indian", "Nepal", "Bhutan", "OCI", "NRI"]);
+const acceptedYouthStatuses = new Set(["Indian", "Nepal", "Bhutan", "OCI", "NRI"]);
 
-export function evaluateYouthForIndia(input: YouthForIndiaInput): EligibilityResult {
-  const checks: EligibilityCheck[] = [];
-  if (input.age === undefined || Number.isNaN(input.age)) {
-    checks.push({ label: "Age", status: "missing", detail: "Age is required." });
-  } else {
-    checks.push(input.age >= 21 && input.age <= 32
-      ? { label: "Age", status: "matched", detail: "Published range: 21–32 years." }
-      : { label: "Age", status: "failed", detail: "Published range: 21–32 years." });
-  }
+const scholarships = [
+  {
+    id: "reliance-undergraduate-2026",
+    title: "Reliance Foundation Undergraduate Scholarships 2026–27",
+    provider: "Reliance Foundation",
+    officialUrl: "https://www.scholarships.reliancefoundation.org/UG_Scholarship",
+    sourceStatus: "Open · deadline 5 Oct 2026",
+    check(profile: ScholarshipProfile): EligibilityCheck[] {
+      return [
+        { label: "Citizenship", status: !profile.citizenship ? "missing" : profile.citizenship === "Indian" ? "matched" : "failed", detail: "Must be a resident Indian citizen." },
+        { label: "Study level", status: !profile.educationLevel ? "missing" : profile.educationLevel === "undergraduate" ? "matched" : "failed", detail: "Must be enrolled in the first year of a regular full-time undergraduate degree." },
+        { label: "Study year", status: !profile.studyYear ? "missing" : profile.studyYear === "1" ? "matched" : "failed", detail: "Must be in year 1 during academic year 2026–27." },
+        { label: "Household income", status: profile.householdIncomeLakh === undefined ? "missing" : profile.householdIncomeLakh < 15 ? "matched" : "failed", detail: "Published household income limit: below ₹15 lakh per year." },
+        { label: "Study mode", status: !profile.studyMode ? "missing" : profile.studyMode === "regular" ? "matched" : "failed", detail: "Online, distance, hybrid, and remote programmes are excluded." },
+      ];
+    },
+  },
+  {
+    id: "sbi-youth-for-india-2026",
+    title: "SBI Youth for India Fellowship 2026–27",
+    provider: "SBI Foundation",
+    officialUrl: "https://youthforindia.org/",
+    sourceStatus: "Paused · no current deadline",
+    check(profile: ScholarshipProfile): EligibilityCheck[] {
+      return [
+        { label: "Age", status: profile.age === undefined ? "missing" : profile.age >= 21 && profile.age <= 32 ? "matched" : "failed", detail: "Published range: 21–32 years at programme commencement." },
+        { label: "Citizenship or status", status: !profile.citizenship ? "missing" : acceptedYouthStatuses.has(profile.citizenship) ? "matched" : "failed", detail: "Accepted: India, Nepal, Bhutan, OCI, or NRI." },
+        { label: "Education", status: !profile.educationLevel ? "missing" : profile.educationLevel === "graduate" ? "matched" : "failed", detail: "A completed bachelor’s degree is required by the published date." },
+      ];
+    },
+  },
+];
 
-  if (!input.degreeCompleted) {
-    checks.push({ label: "Bachelor's degree", status: "missing", detail: "Degree completion is required." });
-  } else {
-    checks.push(input.degreeCompleted === "yes"
-      ? { label: "Bachelor's degree", status: "matched", detail: "Must be completed by 4 October 2026." }
-      : { label: "Bachelor's degree", status: "failed", detail: "Must be completed by 4 October 2026." });
-  }
-
-  if (!input.citizenship) {
-    checks.push({ label: "Citizenship or status", status: "missing", detail: "Citizenship or status is required." });
-  } else {
-    checks.push(acceptedStatuses.has(input.citizenship)
-      ? { label: "Citizenship or status", status: "matched", detail: "Accepted: India, Nepal, Bhutan, OCI, or NRI." }
-      : { label: "Citizenship or status", status: "failed", detail: "Accepted: India, Nepal, Bhutan, OCI, or NRI." });
-  }
-
-  if (!input.sbiEmployee) {
-    checks.push({ label: "SBI employee status", status: "missing", detail: "This extra condition is required only to resolve the published employee rule." });
-  } else {
-    checks.push(input.sbiEmployee === "unconfirmed"
-      ? { label: "SBI employee status", status: "failed", detail: "Published rule requires a confirmed Officer in Scale I/II." }
-      : { label: "SBI employee status", status: "matched", detail: input.sbiEmployee === "confirmed" ? "Confirmed Officer in Scale I/II." : "Not an SBI employee." });
-  }
-
-  const hasMissing = checks.some(check => check.status === "missing");
-  const hasFailure = checks.some(check => check.status === "failed");
-  return { status: hasMissing ? "more" : hasFailure ? "no" : "yes", checks };
+export function evaluateScholarships(profile: ScholarshipProfile): ScholarshipMatch[] {
+  return scholarships.map(scholarship => {
+    const checks = scholarship.check(profile);
+    const hasMissing = checks.some(check => check.status === "missing");
+    const hasFailure = checks.some(check => check.status === "failed");
+    const status = hasMissing ? "more-info" : hasFailure ? "not-match" : "likely-match";
+    const reason = status === "likely-match" ? "Your answers match the published criteria." : status === "not-match" ? "At least one published criterion does not match." : "Complete the missing answers to check this scholarship.";
+    return { id: scholarship.id, title: scholarship.title, provider: scholarship.provider, status, reason, checks, officialUrl: scholarship.officialUrl, sourceStatus: scholarship.sourceStatus };
+  });
 }
