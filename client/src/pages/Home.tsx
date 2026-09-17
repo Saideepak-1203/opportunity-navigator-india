@@ -71,7 +71,7 @@ export default function Home() {
   const dismiss = (title: string) => { const next = [...dismissed, title]; setDismissed(next); persist("sloth-guest-dismissed", next); toast.success("Removed from your recommendations"); };
   const toggleTracked = (title: string) => { const next = tracked.includes(title) ? tracked.filter(x => x !== title) : [...tracked, title]; setTracked(next); persist("sloth-guest-tracked", next); toast.success(tracked.includes(title) ? "Stopped tracking" : "Now tracking this opportunity"); };
   const navigate = (label: WorkspaceView) => { setActiveNav(label); setMobileOpen(false); };
-  const saveProfile = async (payload: ProfilePayload) => { setProfile(payload); persist("sloth-guest-profile", payload); toast.success("Profile saved on this device"); };
+  const saveProfile = async (payload: ProfilePayload) => { setProfile(payload); persist("sloth-guest-profile", payload); setActiveNav("Home"); toast.success("Profile saved on this device"); };
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
