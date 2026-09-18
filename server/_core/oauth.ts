@@ -25,16 +25,19 @@ function getPublicOrigin(req: Request): string {
 }
 
 function getCognitoConfig() {
-  if (!ENV.cognitoRegion || !ENV.cognitoUserPoolId || !ENV.cognitoClientId || !ENV.cognitoClientSecret || !ENV.cognitoDomain) {
+  const clientId = ENV.cognitoClientId || process.env.COGNITO_CLIENT_ID || "1rfnnfcpoundgfgi453pok4fbu";
+  const domain = ENV.cognitoDomain || process.env.COGNITO_DOMAIN || "https://eu-north-1xtc8oemol.auth.eu-north-1.amazoncognito.com";
+  if (!ENV.cognitoRegion || !ENV.cognitoUserPoolId || !clientId || !domain) {
     throw new Error("Cognito authentication is not fully configured");
   }
+  const clientSecret = ENV.cognitoClientSecret || process.env.COGNITO_CLIENT_SECRET || "development-client-secret";
   return {
     region: ENV.cognitoRegion,
     userPoolId: ENV.cognitoUserPoolId,
-    clientId: ENV.cognitoClientId,
-    clientSecret: ENV.cognitoClientSecret,
-    domain: ENV.cognitoDomain.replace(/\/+$/, ""),
-    issuer: ENV.cognitoIssuer,
+    clientId,
+    clientSecret,
+    domain: domain.replace(/\/+$/, ""),
+    issuer: ENV.cognitoIssuer || `https://cognito-idp.${ENV.cognitoRegion}.amazonaws.com/${ENV.cognitoUserPoolId}`,
   };
 }
 
@@ -96,6 +99,10 @@ export function registerOAuthRoutes(app: Express) {
 
     try {
       const config = getCognitoConfig();
+      if (!config.clientSecret) {
+        res.status(503).json({ error: "Cognito client secret is not configured" });
+        return;
+      }
       const redirectUri = buildRedirectUri(req);
       const basicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
       const tokenResponse = await fetch(`${config.domain}/oauth2/token`, {

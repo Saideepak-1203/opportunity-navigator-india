@@ -1,5 +1,8 @@
-const cognitoRegion = process.env.COGNITO_REGION ?? "";
-const cognitoUserPoolId = process.env.COGNITO_USER_POOL_ID ?? "";
+const cognitoRegion = process.env.COGNITO_REGION ?? "eu-north-1";
+const cognitoUserPoolId = process.env.COGNITO_USER_POOL_ID ?? "eu-north-1xtc8oemol";
+const cognitoClientId = process.env.COGNITO_CLIENT_ID ?? "1rfnnfcpoundgfgi453pok4fbu";
+const cognitoClientSecret = process.env.COGNITO_CLIENT_SECRET ?? "development-client-secret";
+const cognitoDomain = process.env.COGNITO_DOMAIN ?? "https://eu-north-1xtc8oemol.auth.eu-north-1.amazoncognito.com";
 
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
@@ -12,9 +15,9 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   cognitoRegion,
   cognitoUserPoolId,
-  cognitoClientId: process.env.COGNITO_CLIENT_ID ?? "",
-  cognitoClientSecret: process.env.COGNITO_CLIENT_SECRET ?? "",
-  cognitoDomain: process.env.COGNITO_DOMAIN ?? "",
+  cognitoClientId,
+  cognitoClientSecret,
+  cognitoDomain,
   cognitoIssuer: cognitoRegion && cognitoUserPoolId
     ? `https://cognito-idp.${cognitoRegion}.amazonaws.com/${cognitoUserPoolId}`
     : "",
