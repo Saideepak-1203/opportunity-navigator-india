@@ -44,6 +44,7 @@ function OpportunityCard({ item, saved, tracked, onSave, onTrack, onDismiss }: {
 }
 
 export default function Home() {
+  const [showLanding, setShowLanding] = useState(true);
   const guestProfile = { profileName: "Guest explorer", journey: "student", interests: ["AI & technology"], bio: "" };
   const readLocal = <T,>(key: string, fallback: T): T => {
     if (typeof window === "undefined") return fallback;
@@ -73,6 +74,8 @@ export default function Home() {
   const navigate = (label: WorkspaceView) => { setActiveNav(label); setMobileOpen(false); };
   const saveProfile = async (payload: ProfilePayload) => { setProfile(payload); persist("sloth-guest-profile", payload); setActiveNav("Home"); toast.success("Profile saved on this device"); };
 
+  if (showLanding) return <LandingPage onExplore={() => setShowLanding(false)} />;
+
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen ? "open" : ""}`}>
       <div className="brand"><div className="brand-mark">s</div><span>sloth</span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
@@ -87,6 +90,13 @@ export default function Home() {
       <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><span className="role-pill guest-pill">Guest workspace</span><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => setActiveNav("Profile settings")}>{initials}</button></div></header>
       {role === "poster" ? <PosterView /> : <WorkspaceContent view={activeNav} activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} dismissed={dismissed} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} query={query} setQuery={setQuery} visible={visible} firstName={firstName} profile={profile} onSaveProfile={saveProfile} />}
     </main>
+  </div>;
+}
+
+function LandingPage({ onExplore }: { onExplore: () => void }) {
+  return <div className="landing-page">
+    <header className="landing-nav"><div className="landing-brand"><div className="landing-logo">s</div><div><strong>SLOTH</strong><small>Opportunity Navigator · India</small></div></div><nav><button onClick={onExplore}>Explore</button><button className="landing-post" onClick={() => toast.info("Opportunity posting is coming soon")}>Post an Opportunity</button><button onClick={onExplore}>Log in</button><button className="landing-create" onClick={onExplore}>Create account</button></nav></header>
+    <main className="landing-main"><p className="landing-eyebrow">OPPORTUNITY NAVIGATION LAYER · INDIA</p><h1>Don’t search through<br />thousands of<br /><span>opportunities.</span> Know<br />which ones matter to you.</h1><p className="landing-subtitle">A trusted opportunity navigation layer for students, learners, founders and<br />young professionals in India.</p><div className="landing-actions"><button className="landing-primary" onClick={onExplore}>Get started — it's free <ArrowUpRight size={16} /></button><button className="landing-secondary" onClick={onExplore}>Explore Opportunities <ArrowUpRight size={16} /></button></div><p className="landing-note">Three minutes to set up · Organisations verify before their listings go live</p></main><section className="landing-bottom"><h2>Built for better decisions, not more listings</h2><div className="landing-cards"><article><ShieldCheck size={20} /><strong>Verified sources</strong><p>See where every opportunity comes from.</p></article><article><Target size={20} /><strong>Made for your fit</strong><p>Find opportunities aligned with your goals.</p></article><article><GraduationCap size={20} /><strong>Clear next steps</strong><p>Move from browsing to applying with confidence.</p></article></div></section>
   </div>;
 }
 
