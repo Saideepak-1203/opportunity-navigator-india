@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 type Opportunity = { title: string; org: string; type: string; category: string; days: string; match: number; mode: string; benefit: string; tone: string; logo: string; eligible: string; description: string; dataStatus: "official" | "demo"; sourceUrl?: string; lastVerified?: string };
-type WorkspaceView = "Home" | "Opportunities" | "Eligibility checker" | "Commun-In" | "My applications" | "Saved" | "Profile settings";
+type WorkspaceView = "Home" | "Opportunities" | "Slot Calendar" | "Commun-In" | "Eligibility checker" | "My applications" | "Saved" | "Sloth Membership" | "Profile settings";
 type ProfilePayload = { profileName: string; journey: string; interests: string[]; bio?: string };
 type SlothProfile = ProfilePayload;
 
@@ -22,9 +22,9 @@ const opportunities: Opportunity[] = [
 
 const filters = ["For you", "Closing soon", "Scholarships", "Internships"];
 const navItems = [
-  { icon: Compass, label: "Home" }, { icon: Search, label: "Opportunities" }, { icon: GraduationCap, label: "Eligibility checker" },
-  { icon: Users, label: "Commun-In" },
-  { icon: BriefcaseBusiness, label: "My applications" }, { icon: Bookmark, label: "Saved" },
+  { icon: Compass, label: "Home" }, { icon: Search, label: "Opportunities" }, { icon: CalendarDays, label: "Slot Calendar" },
+  { icon: Users, label: "Commun-In" }, { icon: BriefcaseBusiness, label: "My applications" }, { icon: Bookmark, label: "Saved" },
+  { icon: Sparkles, label: "Sloth Membership" }, { icon: CircleHelp, label: "Profile settings" },
 ] as const;
 
 function Logo({ letter, className = "" }: { letter: string; className?: string }) {
@@ -87,7 +87,7 @@ export default function Home() {
       <div className="poster-switch"><div><small>Publishing opportunities?</small><strong>Switch to Poster</strong></div><button onClick={() => { setRole(role === "user" ? "poster" : "user"); toast.success(role === "user" ? "Poster workspace selected" : "Back to your personal workspace"); }}><ArrowUpRight size={16} /></button></div>
     </aside>
     <main className="main-content">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button><div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div><div className="top-actions"><span className="role-pill guest-pill">Guest workspace</span><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => setActiveNav("Profile settings")}>{initials}</button></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={21} /></button>{activeNav === "Home" && role === "user" ? <div className="home-search"><Search size={15} /><input placeholder="Search opportunities, orgs, skills" /></div> : <div className="crumb"><span>Workspace</span><span>/</span><strong>{role === "user" ? activeNav : "Poster dashboard"}</strong></div>}<div className="top-actions"><button className="notification" onClick={() => toast.info("You are all caught up") }><Bell size={18} /><i /></button><button className="avatar mini profile-avatar" onClick={() => setActiveNav("Profile settings")}>{initials}</button></div></header>
       {role === "poster" ? <PosterView /> : <WorkspaceContent view={activeNav} activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} dismissed={dismissed} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} query={query} setQuery={setQuery} visible={visible} firstName={firstName} profile={profile} onSaveProfile={saveProfile} />}
     </main>
   </div>;
@@ -102,20 +102,20 @@ function LandingPage({ onExplore }: { onExplore: () => void }) {
 
 function WorkspaceContent({ view, activeFilter, setActiveFilter, saved, dismissed, tracked, save, dismiss, toggleTracked, query, setQuery, visible, firstName, profile, onSaveProfile }: { view: WorkspaceView; activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; dismissed: string[]; tracked: string[]; save: (title: string) => void; dismiss: (title: string) => void; toggleTracked: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; firstName: string; profile: SlothProfile; onSaveProfile: (payload: ProfilePayload) => Promise<void> }) {
   if (view === "Opportunities") return <OpportunitiesView activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} query={query} setQuery={setQuery} visible={visible} />;
+  if (view === "Slot Calendar") return <div className="workspace-page"><section className="page-intro"><div><p className="kicker"><CalendarDays size={15} /> SLOT CALENDAR</p><h1>Keep your deadlines <em>visible.</em></h1><p className="subhead">A calm view of applications and closing dates.</p></div></section><div className="calendar-card"><h3>Your upcoming deadlines</h3><p className="subhead">Calendar view is ready for your tracked opportunities.</p></div></div>;
   if (view === "Eligibility checker") return <EligibilityChecker />;
   if (view === "Commun-In") return <CommunityView />;
   if (view === "My applications") return <ApplicationsView />;
   if (view === "Saved") return <SavedView saved={saved} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} />;
   if (view === "Profile settings") return <ProfileSettings profile={profile} onSave={onSaveProfile} />;
+  if (view === "Sloth Membership") return <div className="workspace-page"><section className="page-intro"><div><p className="kicker"><Sparkles size={15} /> SLOTH MEMBERSHIP</p><h1>More signal, <em>less noise.</em></h1><p className="subhead">Membership benefits are coming soon.</p></div></section></div>;
   return <HomeView activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} query={query} setQuery={setQuery} visible={visible} firstName={firstName} />;
 }
 
-function HomeView({ activeFilter, setActiveFilter, saved, tracked, save, dismiss, toggleTracked, query, setQuery, visible, firstName }: { activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; tracked: string[]; save: (title: string) => void; dismiss: (title: string) => void; toggleTracked: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; firstName: string }) {
-  return <>
-    <section className="page-intro home-intro"><div><p className="kicker"><ShieldCheck size={15} /> VERIFIED OPPORTUNITIES</p><h1>Find your next <em>move.</em></h1><p className="subhead">Real internships, scholarships, and fellowships from official provider sources.</p></div><span className="source-chip"><ShieldCheck size={13} /> Source-linked</span></section>
-    <OpportunityDiscovery activeFilter={activeFilter} setActiveFilter={setActiveFilter} saved={saved} tracked={tracked} save={save} dismiss={dismiss} toggleTracked={toggleTracked} query={query} setQuery={setQuery} visible={visible} />
-    <Footer />
-  </>;
+function HomeView({ firstName }: { activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; tracked: string[]; save: (title: string) => void; dismiss: (title: string) => void; toggleTracked: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; firstName: string }) {
+  const next = [["Smart India Hackathon 2026 — Software Edition", "Finish the idea submission — closes tomorrow"], ["Summer Research Fellowship (SRFP)", "Wait for lab allocation, expected 24 Sep"], ["Research Internship Award", "Share your faculty recommendation letter"]];
+  const matches = [["HACKATHONS", "Smart India Hackathon 2026 — Software Edition", "Ministry of Education Innovation Cell, Government of India", "92% match", "1 day left"], ["RESEARCH", "Summer Research Fellowship (SRFP)", "Indian Institute of Science, Bengaluru", "88% match", "3 days left"], ["SCHOLARSHIPS", "INSPIRE Scholarship for Higher Education", "Department of Science & Technology, Government of India", "86% match", "12 days left"]];
+  return <div className="reference-home"><section className="home-welcome"><div><h1>Good afternoon, {firstName}.</h1><p>3 strong matches, 2 deadlines this week, and one application waiting on you.</p></div></section><div className="home-top-grid"><section className="next-card"><h2>What to do next</h2>{next.map(([title, detail]) => <div className="next-row" key={title}><div><strong>{title}</strong><small>{detail}</small></div><button onClick={() => toast.info("Opening your next action")}>Continue</button></div>)}<div className="home-quick-actions"><button>Explore opportunities</button><button>Open my calendar</button><button>Track applications</button><button>Find communities</button></div></section><aside className="home-side-stack"><section className="completion-card"><h3>Profile completeness</h3><strong>82%</strong><div className="completion-bar"><i /></div><p>Next: add your skills to sharpen match quality.</p><button>Complete profile</button></section><section className="deadlines-card"><h3>My deadlines</h3><p><span>Smart India Hackathon</span><b className="tomorrow">Tomorrow</b></p><p><span>IISc Summer Research</span><b>3 days</b></p><p><span>IIT Bombay Internship</span><b>6 days</b></p><a>Open Slot Calendar →</a></section></aside></div><section className="strong-matches"><div className="matches-heading"><h2>3 strong matches</h2><button>See all</button></div><div className="match-grid">{matches.map(([type,title,org,fit,time]) => <article key={title}><div className="match-top"><small>{type}</small><span>{fit}</span></div><h3>{title}</h3><p>{org}</p><div><b>● {time}</b><em>✓ Likely eligible</em></div></article>)}</div></section></div>;
 }
 
 function OpportunityDiscovery({ activeFilter, setActiveFilter, saved, tracked, save, dismiss, toggleTracked, query, setQuery, visible, compact = false }: { activeFilter: string; setActiveFilter: (value: string) => void; saved: string[]; tracked: string[]; save: (title: string) => void; dismiss: (title: string) => void; toggleTracked: (title: string) => void; query: string; setQuery: (value: string) => void; visible: Opportunity[]; compact?: boolean }) {
